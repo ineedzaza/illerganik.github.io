@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Number Counter</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #fff;
+    text-align: center;
+    padding: 40px;
+  }
+  .calc {
+    display: inline-block;
+    background: #222;
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #00ffcc;
+  }
+  input, select, button {
+    padding: 10px;
+    font-size: 1em;
+    margin: 5px;
+    border-radius: 5px;
+    border: none;
+  }
+  button {
+    background: #00ffcc;
+    color: #111;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #00e6b8;
+  }
+  .result {
+    margin-top: 20px;
+    font-size: 1.5em;
+    color: #00ffcc;
+  }
+</style>
+</head>
+<body>
+  <h1>Java Number Counter</h1>
+
+<script>
+ import java.awt.*;
+import java.text.NumberFormat;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.swing.*;
+import javax.swing.text.*;
+ 
+@SuppressWarnings("serial")
+public class Main extends JFrame {
+    private JLabel label, msLabel;
+    private JButton startButton, stopButton, pauseResumeButton;
+    private JTextField maxCountField;
+    private AtomicLong count = new AtomicLong();
+    private long maxCount, lastTime, millis;
+    private boolean running, paused, msRunning;
+    private Timer timer;
+    private JComboBox<String> fontSelector;
+ 
+    public Main() {
+        setTitle("Number Counter 1.5");
+        setSize(600, 280);
+        setDefaultCloseOperation(3);
+        setResizable(false);
+        setLayout(null);
+        label = new JLabel("Count: 0");
+        label.setFont(new Font("Arial", 1, 40));
+        add(label);
+        msLabel = new JLabel("Time: 0ms");
+        msLabel.setFont(new Font("Arial", 1, 30));
+        add(msLabel);
+        maxCountField = new JTextField("", 15);
+        maxCountField.setDocument(numberDocument());
+        add(maxCountField);
+        startButton = new JButton("Start");
+        startButton.addActionListener(e -> startCount());
+        add(startButton);
+        stopButton = new JButton("Stop");
+        stopButton.addActionListener(e -> stopCount());
+        stopButton.setEnabled(false);
+        add(stopButton);
+        pauseResumeButton = new JButton("Pause");
+        pauseResumeButton.addActionListener(e -> pauseResumeCount());
+        pauseResumeButton.setEnabled(false);
+        add(pauseResumeButton);
+        String[] fonts = {"Arial", "Courier New", "Comic Sans MS", "Verdana", "Bell MT"};
+        fontSelector = new JComboBox<>(fonts);
+        fontSelector.setSelectedItem("Arial");
+        fontSelector.addActionListener(e -> changeFont());
+        add(fontSelector);
+        componentPositions();
+        setLocationRelativeTo(null);
+        setVisible(true);
+    }
+ 
+    private void changeFont() {
+        String selectedFont = (String) fontSelector.getSelectedItem();
+        label.setFont(new Font(selectedFont, 1, 40));
+        msLabel.setFont(new Font(selectedFont, 1, 30));
+        componentPositions();
+    }
+ 
+    private PlainDocument numberDocument() {
+        return new PlainDocument() {
+            public void insertString(int offs, String str, AttributeSet a) throws BadLocationException {
+                if (str == null || !str.matches("[0-9]*")) return;
+                StringBuilder sb = new StringBuilder(getText(0, getLength()));
+                sb.insert(offs, str);
+                if (sb.length() == 0 || sb.toString().matches("[0-9]+")) super.insertString(offs, str, a);
+            }
+        };
+    }
+ 
+    private void componentPositions() {
+        int labelWidth = label.getPreferredSize().width;
+        int labelX = (getWidth() - labelWidth) / 2;
+        label.setBounds(labelX, 10, labelWidth, 50);
+        int secondsLabelWidth = msLabel.getPreferredSize().width;
+        int secondsLabelX = (getWidth() - secondsLabelWidth) / 2;
+        msLabel.setBounds(secondsLabelX, 155, secondsLabelWidth, 30);
+        int textFieldWidth = maxCountField.getPreferredSize().width;
+        int textFieldX = (getWidth() - textFieldWidth) / 2;
+        maxCountField.setBounds(textFieldX, 115, textFieldWidth, 30);
+        int buttonWidth = 80;
+        int spacing = 20;
+        int totalButtonWidth = buttonWidth * 3 + spacing * 2;
+        int buttonY = 70;
+        int startButtonX = (getWidth() - totalButtonWidth) / 2;
+        startButton.setBounds(startButtonX, buttonY, buttonWidth, 30);
+        stopButton.setBounds(startButtonX + buttonWidth + spacing, buttonY, buttonWidth, 30);
+        pauseResumeButton.setBounds(startButtonX + 2 * (buttonWidth + spacing), buttonY, buttonWidth, 30);
+        fontSelector.setBounds((getWidth() - 150) / 2, 200, 150, 30);
+    }
+ 
+    public void startCount() {
+        if (running) return;
+        try {
+            maxCount = Long.parseLong(maxCountField.getText());
+        } catch (NumberFormatException e) { return; }
+        running = true;
+        count.set(0);
+        millis = 0;
+        paused = false;
+        stopButton.setEnabled(true);
+        pauseResumeButton.setEnabled(true);
+        lastTime = System.currentTimeMillis();
+        msRunning = true;
+        new Thread(() -> {
+            while (running) {
+                if (!paused) {
+                    long currentCount = count.getAndIncrement();
+                    if (currentCount >= maxCount) {
+                        count.set(maxCount);
+                        running = false;
+                        msRunning = false;
+                    }
+                    continue;
+                }
+            }
+            msRunning = false;
+        }).start();
+        timer = new Timer(1, e -> {
+            updateLabel();
+            if (msRunning) {
+                long now = System.currentTimeMillis();
+                millis += (now - lastTime);
+                msLabel.setText(millis + "ms");
+                lastTime = now;
+            }
+        });
+        timer.start();
+    }
+ 
+    public void stopCount() {
+        running = false;
+        count.set(0);
+        label.setText("Count: 0");
+        millis = 0;
+        msLabel.setText("Time: 0ms");
+        stopButton.setEnabled(false);
+        pauseResumeButton.setEnabled(false);
+        if (timer != null) {
+            timer.stop();
+            msRunning = false;
+        }
+        componentPositions();
+    }
+ 
+    public void pauseResumeCount() {
+        if (!running || count.get() >= maxCount) return;
+        paused = !paused;
+        if (paused) {
+            pauseResumeButton.setText("Resume");
+            msRunning = false;
+        } else {
+            pauseResumeButton.setText("Pause");
+            msRunning = true;
+            lastTime = System.currentTimeMillis();
+        }
+    }
+ 
+    private void updateLabel() {
+        long currentCount = count.get();
+        StringBuilder sb = new StringBuilder();
+        sb.append(NumberFormat.getInstance().format(currentCount));
+        label.setText(sb.toString());
+        componentPositions();
+    }
+ 
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(Main::new);
+    }
+}
+</script>
+</body>
+<html>
